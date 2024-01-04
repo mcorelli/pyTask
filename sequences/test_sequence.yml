@@ -1,0 +1,13 @@
+# This is a test sequnce
+
+Name: Test Sequence
+Description: Used to check the pytask
+
+Tasks:
+  - task  : 1st task to execute
+    module: test_task
+    args  : 
+  - task  : 2nd task to execute
+    module: program_st_task
+    args  :
+      filename: the-file-to-flash
