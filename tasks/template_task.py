@@ -22,12 +22,26 @@ class TaskBase:
     def load_cnf(self, fullfilename: str) -> None:
         """ Load file conf into cnf dict """
         if not isfile(fullfilename):
-            raise Exception
+            raise FileNotFoundError
         with open(fullfilename, 'r', encoding='utf-8') as file:
             self._cnf = safe_load(file)
 
-    @abstractmethod
     def run(self) -> None:
+        """ Run """
+        self._init()
+        self._run()
+        self._final()
+
+    def _init(self) -> None:
+        """ Initialization before Run"""
+        return
+
+    def _final(self) -> None:
+        """ Finalization after Run"""
+        return
+
+    @abstractmethod
+    def _run(self) -> None:
         """ Abstract method """
         raise NotImplementedError('This is an abstract method')
 
