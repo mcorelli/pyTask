@@ -2,7 +2,12 @@
 
 from importlib import import_module
 from yaml import safe_load
-from tasks.template_task import TaskBase
+from tasks.template_task import BaseStatus, TaskBase
+
+
+def callback(status: BaseStatus, msg: str):
+    """ Call back funct """
+    print(f'callback: status "{status}" message "{msg}"')
 
 
 def load_module(module_name: str, alias: str|None=None) -> None:
@@ -14,11 +19,11 @@ def load_module(module_name: str, alias: str|None=None) -> None:
     globals()[mod_ref] = import_module(f'tasks.{module_name}')
 
 
-def get_task(module_name: str, config_path: str) -> TaskBase:
+def get_task(module_name: str, config_path: str, args: dict) -> TaskBase:
     """ Return TaskBase from a task class """
     module = import_module(f'tasks.{module_name}')
     factory = getattr(module, 'get_task')
-    return factory(config_path)
+    return factory(config_path, args, callback)
 
 
 if __name__ == "__main__":

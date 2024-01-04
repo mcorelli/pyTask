@@ -3,8 +3,17 @@ This is the template to must use in the PyTaskManage
 """
 
 from abc import abstractmethod
+from enum import Enum
+from typing import Callable
 from genericpath import isfile
 from yaml import safe_load
+
+
+class BaseStatus(Enum):
+    """ Event type for callback func
+    """
+    OK = 0
+    ERROR = -1
 
 class TaskBase:
     """
@@ -12,12 +21,13 @@ class TaskBase:
     """
     _cnf = {}
 
-    def __init__(self, fullfilename: str|None=None):
+    def __init__(self, fullfilename: str|None=None, on_event: Callable[[BaseStatus, str], None]|None=None):
         """
         Constructor
         """
         if fullfilename is not None:
             self.load_cnf(fullfilename)
+        self._on_event = on_event
 
     def load_cnf(self, fullfilename: str) -> None:
         """ Load file conf into cnf dict """
