@@ -1,0 +1,21 @@
+
+#Ignore files built by Visual Code
+/.vscode/
+
+#Ignore thumbnails created by Windows
+Thumbs.db
+
+#Ignore DEMO files
+__EXAMPLES__/
+
+#Ignore WIP files
+@*/
+
+#Backup files
+*.bak
+
+#ignore venv
+/.venv/
+
+#ignore cache
+__pycache__/
