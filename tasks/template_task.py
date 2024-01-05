@@ -5,7 +5,7 @@ This is the template to must use in the PyTaskManage
 from abc import abstractmethod
 from enum import Enum
 from typing import Callable
-
+import logging
 from helper.files import load_yaml
 
 class BaseStatus(Enum):
@@ -25,7 +25,8 @@ class TaskBase:
         Constructor
         """
         if fullfilename is not None:
-            load_yaml(fullfilename)
+            logging.info('Load cnf %s', fullfilename)
+            self._cnf = load_yaml(fullfilename)
         self._on_event = on_event
 
     def run(self) -> None:
