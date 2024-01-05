@@ -14,7 +14,7 @@ class Test(TaskBase):
     """
     def __init__(self, configpath:str, on_event: Callable[[BaseStatus, str], None]|None=None):
         """ Constructor """
-        fullfilename = path.join( path.abspath(configpath), Path(__file__).stem + '.yml')
+        fullfilename = path.join(path.abspath(configpath), Path(__file__).stem + '.yml')
         super().__init__(fullfilename, on_event)
         self.__say__ = self._cnf['say_ho_ho']
 

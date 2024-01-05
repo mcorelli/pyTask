@@ -1,0 +1,3 @@
+log:
+  filename: ./log/pyTask.log
+  level: INFO

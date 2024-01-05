@@ -1,46 +1,76 @@
 """ Main file """
+import logging
+import logging.handlers
+import os
+from enum import Enum
+from helper.files import load_yaml, save_yaml, get_app_path
+from helper.load import load_task
 
-from importlib import import_module
-from yaml import safe_load
-from tasks.template_task import BaseStatus, TaskBase
 
-
-def callback(status: BaseStatus, msg: str):
+def callback(status: Enum, msg: str):
     """ Call back funct """
     print(f'callback: status "{status}" message "{msg}"')
 
 
-def load_module(module_name: str, alias: str|None=None) -> None:
-    """ Import an external module """
-    if alias is not None:
-        mod_ref = alias
-    else:
-        mod_ref = module_name
-    globals()[mod_ref] = import_module(f'tasks.{module_name}')
+def cnf_default() -> dict:
+    """ Create default configuration
+
+    Returns:
+        dict: default configuration
+    """
+    _cnf = {
+        'log': {'filename': './log/pyTask.log', 'level': 'WARNING'}, 
+    }
+    return _cnf
+
+def cnf_load(filename: str) -> dict:
+    """Load configuration file
+
+    Args:
+        filename (str): fullfilename of config file
+
+    Returns:
+        dict: configuration loaded
+    """
+    try:
+        _cnf = load_yaml(filename)
+    except FileNotFoundError:
+        _cnf = cnf_default()
+        save_yaml(_cnf, filename)
+    return _cnf
 
 
-def get_task(module_name: str, config_path: str, args: dict) -> TaskBase:
-    """ Return TaskBase from a task class """
-    module = import_module(f'tasks.{module_name}')
-    factory = getattr(module, 'get_task')
-    return factory(config_path, args, callback)
+def log_init(log_cnf: dict) -> None:
+    """Logger initializatiob
 
+    Args:
+        log_cnf (dict): Logger config
+    """
+    logging.basicConfig(
+        format='%(asctime)s:%(levelname)-9s: %(message)s',
+        handlers=[logging.handlers.TimedRotatingFileHandler(filename=log_cnf['filename'], when='W0', interval=4)],
+        datefmt='%Y-%m-%d %H:%M:%S',
+        level=log_cnf['level'])
 
 if __name__ == "__main__":
 
-    print('\nStarting.\n')
-    CNFG_PATH = r'./config'
-    SEQUENCE = r'./sequences/test_sequence.yml'
+    CNF_PATH = os.path.join(get_app_path(__file__), 'config')
+    CNF_FILE = os.path.join(CNF_PATH, 'pytask.yml')
+    SEQ_FILE = r'./sequences/test_seq_base.yml'
 
-    if SEQUENCE is not None:
-        with open(SEQUENCE, 'r', encoding='utf-8') as file:
-            sequence = safe_load(file)
-        print(f'Loaded sequence: {sequence["Name"]}')
-        print(f'Description    : {sequence["Description"]}\n')
+    cnf = cnf_load(CNF_FILE)
+    log_init(cnf['log'])
+
+    logging.info('Starting')
+
+    if SEQ_FILE is not None:
+        sequence = load_yaml(SEQ_FILE)
+        logging.info('Loaded sequence: %s', sequence["Name"])
+        logging.info('Description    : %s', sequence["Description"])
         for task in sequence['Tasks']:
-            print(f'Load: {task["task"]}, module <{task["module"]}>')
+            logging.info('Load: %s, module <%s>', task["task"], task["module"])
 
-            tsk = get_task(task["module"], CNFG_PATH, task["args"])
+            tsk = load_task(task["module"], CNF_PATH, task["args"], callback)
             tsk.run()
 
-        print('\nCompleted.\n')
+        logging.info('Completed')
