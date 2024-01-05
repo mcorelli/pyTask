@@ -29,6 +29,11 @@ class TaskBase:
             self._cnf = load_yaml(fullfilename)
         self._on_event = on_event
 
+    @abstractmethod
+    def version(self) -> str:
+        """ Abstract method """
+        raise NotImplementedError('This is an abstract method')
+
     def run(self) -> None:
         """ Run """
         self._init()
@@ -47,6 +52,8 @@ class TaskBase:
     def _run(self) -> None:
         """ Abstract method """
         raise NotImplementedError('This is an abstract method')
+
+
 
 if __name__ == "__main__":
     base = TaskBase()

@@ -33,6 +33,10 @@ class ProgramSTDevice(TaskBase):
             sleep(5)
             print('.', end='')
 
+    def version(self) -> str:
+        return "1.0.0"
+
+
 
 def get_task(configpath:str, args: dict, callback: Callable[[Enum, str], None]|None=None) -> TaskBase:
     """

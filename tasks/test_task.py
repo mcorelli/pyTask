@@ -18,6 +18,9 @@ class Test(TaskBase):
         super().__init__(fullfilename, on_event)
         self.__say__ = self._cnf['say_ho_ho']
 
+    def version(self) -> str:
+        return "1.0.0"
+
     def _init(self) -> None:
         """ Init """
         print('\tMhhh')
