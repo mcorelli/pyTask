@@ -3,10 +3,9 @@
 
 from ctypes import ArgumentError
 from enum import Enum
+from os import path
 import threading
 import subprocess
-import time
-import os.path
 from typing import Callable
 from genericpath import isfile
 
@@ -15,15 +14,8 @@ from genericpath import isfile
 class STEvent(Enum):
     """ Event type for callback func
     """
-    ERROR = 0
-
-class STSetUp:
-    """ Setup for ST Link
-    """
-    def __init__(self, addr: int, freq: int, protection: int):
-        self.addr = addr
-        self.freq = freq
-        self.prot = protection
+    OK = 0
+    ERROR = -1
 
 
 class STProgrammer:
@@ -32,6 +24,7 @@ class STProgrammer:
     """
     _fullfilename = None
     _serial = ''
+    _downloading = False
     _on_event = None
 
     def __init__(self, fullfilename: str, on_event: Callable[[STEvent, str], None]|None=None):
@@ -82,10 +75,19 @@ class STProgrammer:
         """ Abstract method """
         raise NotImplementedError('This is an abstract method')
 
-    def program(self, firmware: str, st_opt: STSetUp, loader: str="") -> None:
+    def program(self, firmware: dict) -> None:
         """ Programming device via Thread
         """
-        threading.Thread(target=self.__run, args=(firmware, st_opt, loader)).start()
+        fullfilename = path.abspath(firmware['file'])
+        threading.Thread(target=self.__run, args=(fullfilename,
+                                                  firmware['addr'],
+                                                  firmware['freq'],
+                                                  firmware['prot'])).start()
+
+    @property
+    def downloading(self) -> bool:
+        """ Get if downolad is running"""
+        return self._downloading
 
     @property
     def serial(self) -> str:
@@ -95,11 +97,11 @@ class STProgrammer:
     def _check_file(self, filename: str, exts: list[str]) -> bool:
         """ Check if file exists and the correct extension
         """
-        if not os.path.isfile(filename):
+        if not path.isfile(filename):
             if callable(self._on_event):
                 self._on_event(STEvent.ERROR, f'Failed to find file "{filename}"!')
             return False
-        if not filename[:-4] in exts:
+        if not filename[-4:] in exts:
             if callable(self._on_event):
                 self._on_event(STEvent.ERROR, f'Error to check extension "{exts}" in file "{filename}"!')
             return False
@@ -109,28 +111,35 @@ class STProgrammer:
         """ Abstract method """
         raise NotImplementedError('This is an abstract method')
 
-    def _download_file(self, firmware: str, st_opt: STSetUp, loader: str) -> bool:
+    def _download_file(self, firmware: str, freq: int, addr: int) -> bool:
         """ Abstract method """
         raise NotImplementedError('This is an abstract method')
 
-    def __run(self, firmware: str, st_opt: STSetUp, loader: str):
+    def __run(self, filename: str, addr: int, freq: int, prot: int):
         """ Programming thread
         """
-
-        if not self._check_file(firmware, ['.bin', '.hex']):
-            return
-
-        if self.set_readout_protection_level(0):
-            return
-
-        if firmware != loader:
-            if not self._erase_sector(st_opt.freq, 1):
+        self._downloading = True
+        try:
+            if not self._check_file(filename, ['.bin', '.hex']):
                 return
-            time.sleep(1)
-        if not self._download_file(firmware, st_opt, loader):
-            return
-        if not self.set_readout_protection_level(st_opt.prot):
-            return
+
+            if self._serial == '':
+                self.auto_select_device()
+
+            if not self.set_readout_protection_level(170):      # set to 0xAA
+                return
+
+            # if firmware != loader:
+            #     if not self._erase_sector(firmware['freq'], 1):
+            #         return
+            #     time.sleep(1)
+
+            if not self._download_file(filename, freq, addr):
+                return
+            if not self.set_readout_protection_level(prot):
+                return
+        finally:
+            self._downloading = False
 
 
 ########################################################################################################################
@@ -146,7 +155,7 @@ class STProgrammerFactory:
         raise NotImplementedError('Use "get_instance" class method!')
 
     @classmethod
-    def get_instance(cls, fullfilename: str, on_event: Callable[[STEvent, str], None]|None=None) -> STProgrammer:
+    def get_instance(cls, fullfilename: str, on_event: Callable[[Enum, str], None]|None=None) -> STProgrammer:
         """
         Factory get method
 
@@ -265,17 +274,16 @@ class STLink(STProgrammer):
             return True
         except Exception:                                               # pylint: disable=broad-exception-caught
             if callable(self._on_event):
-                self._on_event(STEvent.ERROR, f'Error to Erase Sctor {sect}!')
+                self._on_event(STEvent.ERROR, f'Error to Erase Sector {sect}!')
             return False
 
-    def _download_file(self, firmware: str, st_opt: STSetUp, loader: str) -> bool:
+    def _download_file(self, firmware: str, freq: int, addr: int) -> bool:
         """ Program device """
-        if firmware == loader:
-            comstr = f"{self._fullfilename} -c SWD SN={self._serial} Freq={st_opt.freq} -P {firmware} " \
-                        f"{hex(st_opt.addr)} -V while_programming"
-        else:
-            comstr = f"{self._fullfilename} -c SWD SN={self._serial} Freq={st_opt.freq} -P {firmware} " \
-                        f"{hex(st_opt.addr)} -EL {loader} -V while_programming -HardRst"
+        comstr = f"{self._fullfilename} -c SWD SN={self._serial} Freq={freq} -P {firmware} " \
+                    f"{hex(addr)} -V while_programming"
+        # else:
+        #     comstr = f"{self._fullfilename} -c SWD SN={self._serial} Freq={freq} -P {firmware} " \
+        #              f"{hex(addr)} -EL {loader} -V while_programming -HardRst"
         try:
             res = subprocess.check_output(comstr)
             if 'Error occured during program operation!' in res.decode('utf-8'):
@@ -283,9 +291,9 @@ class STLink(STProgrammer):
                     self._on_event(STEvent.ERROR, 'Error occured during program operation!')
                 return False
             return True
-        except Exception:                                                       # pylint: disable=broad-exception-caught
+        except Exception as ex:                                                 # pylint: disable=broad-exception-caught
             if callable(self._on_event):
-                self._on_event(STEvent.ERROR, 'Error to ptogram device!')
+                self._on_event(STEvent.ERROR, f'Error to program device!')
             return False
 
 
@@ -355,9 +363,9 @@ class STM32Programmer(STProgrammer):
         """
 
         if self._serial == "":
-            comstr = f"{self._fullfilename} -c port=SWD Freq=4000 -ob rdp={level}"
+            comstr = f"{self._fullfilename} -c port=SWD Freq=4000 -ob RDP={level}"
         else:
-            comstr = f"{self._fullfilename} -c port=SWD Freq=4000 SN={self._serial} -ob rdp={level}"
+            comstr = f"{self._fullfilename} -c port=SWD Freq=4000 SN={self._serial} -ob RDP={level}"
 
         try:
             subprocess.check_output(comstr)
@@ -381,14 +389,13 @@ class STM32Programmer(STProgrammer):
                 self._on_event(STEvent.ERROR, f'Error to Erase Sctor {sect}!')
             return False
 
-    def _download_file(self, firmware: str, st_opt: STSetUp, loader: str) -> bool:
+    def _download_file(self, firmware: str, freq: int, addr: int) -> bool:
         """ Program device """
-        if firmware == loader:
-            comstr = f"{self._fullfilename} -c port=SWD SN={self._serial} Freq={st_opt.freq} -w {firmware} " \
-                        f"{hex(st_opt.addr)} -V -HardRst"
-        else:
-            comstr = f"{self._fullfilename} -c port=SWD SN={self._serial} Freq={st_opt.freq} -w {firmware} " \
-                        f"{hex(st_opt.addr)} -EL {loader} -HardRst"
+        comstr = f"{self._fullfilename} -c port=SWD SN={self._serial} Freq={freq} -e all -w {firmware} " \
+                 f"{hex(addr)} -V -HardRst"
+        # else:
+        #     comstr = f"{self._fullfilename} -c port=SWD SN={self._serial} Freq={freq} -w {firmware} " \
+        #                 f"{hex(addr)} -EL {loader} -HardRst"
         try:
             res = subprocess.check_output(comstr)
             if 'Error occured during program operation!' in res.decode('utf-8'):
@@ -396,9 +403,9 @@ class STM32Programmer(STProgrammer):
                     self._on_event(STEvent.ERROR, 'Error occured during program operation!')
                 return False
             return True
-        except Exception:                                                       # pylint: disable=broad-exception-caught
+        except Exception as ex:                                                 # pylint: disable=broad-exception-caught
             if callable(self._on_event):
-                self._on_event(STEvent.ERROR, 'Error to ptogram device!')
+                self._on_event(STEvent.ERROR, f'Error to program device!')
             return False
 
 def test(fullfilename: str) -> None:
@@ -412,10 +419,10 @@ def test(fullfilename: str) -> None:
 
 
 if __name__ == '__main__':
-    STLINK = r".\ST_Link_utility\ST-LINK_CLI.exe"
+    STLINK = r".\@utility\ST-LINK_CLI.exe"
     print(STLink.get_version(STLINK))
     STM32PROG = r"C:/Program Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe"
     print(STM32Programmer.get_version(STM32PROG))
 
-    test(STLINK)
+    # test(STLINK)
     test(STM32PROG)

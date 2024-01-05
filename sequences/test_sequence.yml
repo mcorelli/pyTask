@@ -7,7 +7,13 @@ Tasks:
   - task  : 1st task to execute
     module: test_task
     args  : 
-  - task  : 2nd task to execute
+  - task  : 2nd task to execute                             # Performa a flash programming
     module: program_st_task
     args  :
-      filename: the-file-to-flash
+      loader:                                               # Extermal loader for external flash 
+      bootloader:                                           # Bootloder
+      firmware:
+        file:  ./@firmware/Vestfrost_767BI.hex              # Firmare to be loaded
+        addr: 134217728                                     # Firmware address 0x8000000
+        freq: 3300
+        prot: bit-protection
