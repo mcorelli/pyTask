@@ -5,9 +5,8 @@ This is the template to must use in the PyTaskManage
 from abc import abstractmethod
 from enum import Enum
 from typing import Callable
-from genericpath import isfile
-from yaml import safe_load
 
+from helper.files import load_yaml
 
 class BaseStatus(Enum):
     """ Event type for callback func
@@ -26,15 +25,8 @@ class TaskBase:
         Constructor
         """
         if fullfilename is not None:
-            self.load_cnf(fullfilename)
+            load_yaml(fullfilename)
         self._on_event = on_event
-
-    def load_cnf(self, fullfilename: str) -> None:
-        """ Load file conf into cnf dict """
-        if not isfile(fullfilename):
-            raise FileNotFoundError
-        with open(fullfilename, 'r', encoding='utf-8') as file:
-            self._cnf = safe_load(file)
 
     def run(self) -> None:
         """ Run """
