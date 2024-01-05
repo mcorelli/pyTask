@@ -3,11 +3,10 @@
 
 from ctypes import ArgumentError
 from enum import Enum
-from os import path
+from os.path import isfile, abspath
 import threading
 import subprocess
 from typing import Callable
-from genericpath import isfile
 
 ########################################################################################################################
 
@@ -78,7 +77,7 @@ class STProgrammer:
     def program(self, firmware: dict) -> None:
         """ Programming device via Thread
         """
-        fullfilename = path.abspath(firmware['file'])
+        fullfilename = abspath(firmware['file'])
         threading.Thread(target=self.__run, args=(fullfilename,
                                                   firmware['addr'],
                                                   firmware['freq'],
@@ -97,7 +96,7 @@ class STProgrammer:
     def _check_file(self, filename: str, exts: list[str]) -> bool:
         """ Check if file exists and the correct extension
         """
-        if not path.isfile(filename):
+        if not isfile(filename):
             if callable(self._on_event):
                 self._on_event(STEvent.ERROR, f'Failed to find file "{filename}"!')
             return False
