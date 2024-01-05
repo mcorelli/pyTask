@@ -20,3 +20,6 @@ __EXAMPLES__/
 
 #ignore cache
 __pycache__/
+
+#ignore logs
+log/
