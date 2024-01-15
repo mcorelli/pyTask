@@ -1,0 +1,1 @@
+.\.venv\Lib\site-packages\PySide6\uic -g python MainForm.ui -o main_form.py
